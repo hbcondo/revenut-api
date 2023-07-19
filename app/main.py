@@ -1,4 +1,4 @@
-from app.internal import stripe_module
+import uvicorn
 
 from fastapi import FastAPI, Response, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,4 +23,4 @@ async def read_health():
     return {"Hello": "World!"}
 
 if __name__ == "__main__":
-    print("main")
+    uvicorn.run(app, host="localhost", port=8000)
