@@ -248,6 +248,23 @@ class RevenutStripe(BaseModel):
 
 		return subscriptions_upcoming_amount
 
+	def _icon_expire(self, timeDeltaMinutes: int = 5):
+		"""
+		Returns an expiration date
+		"""
+		return int((datetime.datetime.now() + datetime.timedelta(minutes=timeDeltaMinutes)).timestamp());
+
+	def _percentage_diff(self, previous: float, current:float) -> float:
+		"""
+		Returns the percent change between previous and current period numbers
+		"""
+		if current == previous:
+			return 0
+		try:
+			return ((current - previous) / previous) * 100.0
+		except ZeroDivisionError:
+			return float('inf')
+
 def main():
 	print("Calling Stripe API...")
 	mystripe = RevenutStripe()
