@@ -6,6 +6,7 @@ import calendar
 import datetime
 import dateutil.relativedelta
 import locale
+import logging
 
 import stripe
 
@@ -63,6 +64,35 @@ class RevenutStripe(BaseModel):
 		self.DateMonthEndPrevious = self.DateMonthEndCurrent + dateutil.relativedelta.relativedelta(months=-1)
 		self.DateMonthToDatePrevious = self.DateMonthStartPrevious.replace(day=self.DateToday.day, hour=23, minute=59, second=59, microsecond=999)
 
+	def init_account(self, account: stripe.Account | None) ->None:
+		if (account):
+			self.AccountName = account.business_profile.name
+			accountIconFileLink = self.account_icon(account.stripe_id, account.settings.branding.icon)
+			if (accountIconFileLink):
+				self.AccountIconURL = accountIconFileLink.url
+
+	def account(self, account_id) -> None | stripe.Account:
+		account_retrieve = None
+
+		try:
+			# https://stripe.com/docs/api/accounts/retrieve
+			account_retrieve = stripe.Account.retrieve(account_id)
+		except Exception as e:
+			logging.error(e)
+
+		return account_retrieve
+
+	def account_icon(self, account_id: str, fileId: str) -> None | stripe.FileLink:
+		accountIconFileLink = None
+
+		try:
+			# https://stripe.com/docs/file-upload#download-file-contents
+			# https://stripe.com/docs/api/file_links/create
+			accountIconFileLink = stripe.FileLink.create(stripe_account=account_id, file=fileId, expires_at=self._icon_expire())
+		except Exception as e:
+			logging.error(e)
+
+		return accountIconFileLink
 
 def main():
 	print("Calling Stripe API...")
