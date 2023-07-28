@@ -69,6 +69,19 @@ class RevenutStripe(BaseModel):
 		self.DateMonthEndPrevious = self.DateMonthEndCurrent + dateutil.relativedelta.relativedelta(months=-1)
 		self.DateMonthToDatePrevious = self.DateMonthStartPrevious.replace(day=self.DateToday.day, hour=23, minute=59, second=59, microsecond=999)
 
+	def set_subscriptions(self, subscriptions: list) -> None:
+		"""
+		Set subscription properties
+		"""
+		
+		self.VolumePending = self.subscriptions_upcoming(subscriptions, self.DateMonthEndCurrent.timestamp())
+		self.VolumeTrialing, self.CountTrialingMonthCurrent = self.subscriptions_trialing(subscriptions, epochEnd=int(self.DateMonthEndCurrent.timestamp())).values()
+		self.VolumeGrossMonthForecast = self.VolumeGrossMonthCurrent + self.VolumePending + self.VolumeTrialing
+		self.VolumeGrossMonthOverMonthPercentChange = self._percentage_diff(self.VolumeGrossMonthPrevious, self.VolumeGrossMonthForecast)
+		self.VolumeGrossMonthCurrentPercent = self.VolumeGrossMonthForecast and ((self.VolumeGrossMonthCurrent / self.VolumeGrossMonthForecast) * 100.0) or 0
+		self.VolumeTrialingPercent = self.VolumeGrossMonthForecast and ((self.VolumeTrialing / self.VolumeGrossMonthForecast) * 100.0) or 0
+		self.VolumePendingPercent = self.VolumeGrossMonthForecast and ((self.VolumePending / self.VolumeGrossMonthForecast) * 100.0) or 0
+
 	def set_transactions(self, transactions: list) -> None:
 		"""
 		Set transaction properties
@@ -165,6 +178,75 @@ class RevenutStripe(BaseModel):
 		transactions_dict['count'] = charges_date_count
 
 		return transactions_dict
+
+	def subscriptions(self, account_id: str, epochEnd: int, status: str | None = None) -> list:
+		"""
+		Returns a collection of auto-paginated subscriptions from Stripe
+
+		:param account_id: stripe account identifier
+		:param epochStart: request records less than or equal to current period end Epoch timestamp
+		:param status: status of the subscriptions to retrieve
+		"""
+		
+		subscriptions_list = []
+		
+		try:
+			# https://stripe.com/docs/api/subscriptions/list
+			if status:
+				subscriptions = stripe.Subscription.list(stripe_account=account_id, limit=100, current_period_end={'lte': epochEnd}, status=status)
+			else:
+				subscriptions = stripe.Subscription.list(stripe_account=account_id, limit=100, current_period_end={'lte': epochEnd})
+		except Exception as e:
+			logging.error(e)
+		else:
+			for s in subscriptions.auto_paging_iter():
+				# convert to local timezone
+				utcToLocaldatetime1 = time.localtime(s.current_period_end)
+				utcToLocaldatetime2 = time.localtime(s.current_period_start)
+				s.current_period_end = time.mktime(utcToLocaldatetime1)
+				s.current_period_start = time.mktime(utcToLocaldatetime2)
+				subscriptions_list.append(s)
+
+		return subscriptions_list
+
+	def subscriptions_trialing(self, subscriptions_list, epochEnd: int, epochStart:int | None = None) -> dict:
+		"""
+		Returns the dollar amount and count of subscriptions that are still in trial phase for current month
+		"""
+
+		subscriptions_trialing = []
+		subscriptions_dict = dict(
+			amount = 0
+			, count = 0
+		)
+
+		if (epochStart):
+			subscriptions_trialing = list(filter(lambda x: (x.status == 'trialing' or x.status == 'canceled') and x.created >= epochStart and x.created <= epochEnd, subscriptions_list))
+		else:
+			subscriptions_trialing = list(filter(lambda x: x.status == 'trialing' and x.current_period_end <= epochEnd, subscriptions_list))
+		
+		subscriptions_trialing_amount = sum((subscription.plan.amount / 100) for subscription in subscriptions_trialing)
+		subscriptions_trialing_count = len(subscriptions_trialing)
+
+		subscriptions_dict['amount'] = subscriptions_trialing_amount
+		subscriptions_dict['count'] = subscriptions_trialing_count
+
+		return subscriptions_dict
+
+	def subscriptions_upcoming(self, subscriptions_list: list, epochEnd: float) -> float:
+		"""
+		Returns the dollar amount of active subscriptions that haven't been invoiced yet by current month end
+		"""
+
+		subscriptions_upcoming = list(filter(lambda x: 
+			x.current_period_end <= epochEnd		# subscriptions that will be invoiced before end of month
+			and x.status == 'active'				# payment should have been successful before
+		, subscriptions_list))
+
+		subscriptions_upcoming_amount = sum((subscription.plan.amount / 100) for subscription in subscriptions_upcoming)
+		#subscriptions_upcoming_count = len(subscriptions_upcoming)
+
+		return subscriptions_upcoming_amount
 
 def main():
 	print("Calling Stripe API...")
