@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from zoneinfo import ZoneInfo
+from multiprocessing import Pool
 
 import os
 import calendar
@@ -51,6 +52,28 @@ class RevenutStripe(BaseModel):
 
 		stripe.api_key = os.getenv('API_KEY_STRIPE')
 		stripe.log = 'info'
+
+		if (self.TimezonePreference):
+			self.set_locale()
+			self.Status = "init"
+
+		if (self.AuthorizationCode):
+			pass
+
+		elif (self.AccountID):
+			self.Status = "authorized_existing"
+			self.IsAuthorized = True
+
+			with Pool() as pool:
+				transactions = pool.apply_async(self.transactions, (self.AccountID, int(self.DateMonthStartPrevious.timestamp()),))
+				subscriptions = pool.apply_async(self.subscriptions, (self.AccountID, int(self.DateMonthEndCurrent.timestamp()),))
+				customers = pool.apply_async(self.customers, (self.AccountID, int(self.DateDayStartCurrent.timestamp()),))
+				account = pool.apply_async(self.account, (self.AccountID,))
+
+				self.set_transactions(transactions.get())
+				self.set_subscriptions(subscriptions.get())
+				self.set_customers(customers.get())
+				self.set_account(account.get())
 
 	def set_locale(self) -> None:
 		"""
