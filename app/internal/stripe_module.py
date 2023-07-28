@@ -7,6 +7,7 @@ import datetime
 import dateutil.relativedelta
 import locale
 import logging
+import time
 
 import stripe
 
@@ -51,7 +52,11 @@ class RevenutStripe(BaseModel):
 		stripe.api_key = os.getenv('API_KEY_STRIPE')
 		stripe.log = 'info'
 
-	def init_locale(self) -> None:
+	def set_locale(self) -> None:
+		"""
+		Set locale properties
+		"""
+
 		locale.setlocale(locale.LC_ALL, '')
 		self.DateToday = self.DateToday.astimezone(ZoneInfo(self.TimezonePreference)) if self.TimezonePreference else datetime.datetime.now()
 		self.DateDayStartCurrent = self.DateToday.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -64,7 +69,22 @@ class RevenutStripe(BaseModel):
 		self.DateMonthEndPrevious = self.DateMonthEndCurrent + dateutil.relativedelta.relativedelta(months=-1)
 		self.DateMonthToDatePrevious = self.DateMonthStartPrevious.replace(day=self.DateToday.day, hour=23, minute=59, second=59, microsecond=999)
 
-	def init_account(self, account: stripe.Account | None) ->None:
+	def set_transactions(self, transactions: list) -> None:
+		"""
+		Set transaction properties
+		"""
+
+		self.VolumeGrossToday, self.CountPaymentsToday = self.transactions_date(transactions, self.DateDayStartCurrent.timestamp(), self.DateDayEndCurrent.timestamp()).values()
+		self.VolumeGrossMonthCurrent = self.transactions_date(transactions, self.DateMonthStartCurrent.timestamp(), self.DateMonthEndCurrent.timestamp())["amount"]
+		self.VolumeGrossMonthPrevious = self.transactions_date(transactions, self.DateMonthStartPrevious.timestamp(), self.DateMonthEndPrevious.timestamp())["amount"]
+		self.VolumeGrossMonthToDatePrevious = self.transactions_date(transactions, self.DateMonthStartPrevious.timestamp(), self.DateMonthToDatePrevious.timestamp())["amount"]
+		self.VolumeGrossMonthToMonthPercentChange = self._percentage_diff(self.VolumeGrossMonthToDatePrevious, self.VolumeGrossMonthCurrent)
+
+	def set_account(self, account: stripe.Account | None) ->None:
+		"""
+		Set account properties
+		"""
+
 		if (account):
 			self.AccountName = account.business_profile.name
 			accountIconFileLink = self.account_icon(account.stripe_id, account.settings.branding.icon)
@@ -93,6 +113,58 @@ class RevenutStripe(BaseModel):
 			logging.error(e)
 
 		return accountIconFileLink
+
+	def transactions(self, account_id:str, epochStart: int) -> list:
+		"""
+		Returns a collection of auto-paginated charges from Stripe
+
+		:param account_id: stripe account identifier
+		:param epochStart: request records greater than or equal to Epoch timestamp
+		"""
+		charges_list = []
+
+		try:
+			# https://stripe.com/docs/api/charges/list
+			charges = stripe.Charge.list(stripe_account=account_id, limit=100, created={'gte': epochStart})
+		except Exception as e:
+			logging.error(e)
+		else:
+			for charge in charges.auto_paging_iter():
+				utcToLocaldatetime = time.localtime(charge.created)
+				charge.created = time.mktime(utcToLocaldatetime)
+				charges_list.append(charge)
+
+		return charges_list
+
+	def transactions_date(self, charges_list: list, epochStart: float, epochEnd: float) -> dict:
+		"""
+		Returns a collection of successful transactions within a timeframe
+
+		:param charges_list: collection of charges to search on
+		:param epochStart: identify records created greater than or equal to Epoch timestamp
+		:param epochEnd: identify records created less than or equal to Epoch timestamp
+		"""
+
+		transactions_dict = dict(
+			amount = 0
+			, count = 0
+		)
+		
+		charges_date = list(filter(lambda x: 
+									x.created >= epochStart
+									and x.created <= epochEnd
+									and x.refunded is False 
+									and x.status == 'succeeded' 
+									and x.disputed is False                                
+									, charges_list))
+		
+		charges_date_amount = sum((charge.amount / 100) for charge in charges_date)
+		charges_date_count = len(charges_date)
+
+		transactions_dict['amount'] = charges_date_amount
+		transactions_dict['count'] = charges_date_count
+
+		return transactions_dict
 
 def main():
 	print("Calling Stripe API...")
