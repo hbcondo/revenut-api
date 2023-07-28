@@ -71,7 +71,7 @@ class RevenutStripe(BaseModel):
 
 	def set_subscriptions(self, subscriptions: list) -> None:
 		"""
-		Set subscription properties
+		Set properties dependent on retrieving subscriptions data
 		"""
 		
 		self.VolumePending = self.subscriptions_upcoming(subscriptions, self.DateMonthEndCurrent.timestamp())
@@ -84,7 +84,7 @@ class RevenutStripe(BaseModel):
 
 	def set_transactions(self, transactions: list) -> None:
 		"""
-		Set transaction properties
+		Set properties dependent on retrieving charges data
 		"""
 
 		self.VolumeGrossToday, self.CountPaymentsToday = self.transactions_date(transactions, self.DateDayStartCurrent.timestamp(), self.DateDayEndCurrent.timestamp()).values()
@@ -93,9 +93,16 @@ class RevenutStripe(BaseModel):
 		self.VolumeGrossMonthToDatePrevious = self.transactions_date(transactions, self.DateMonthStartPrevious.timestamp(), self.DateMonthToDatePrevious.timestamp())["amount"]
 		self.VolumeGrossMonthToMonthPercentChange = self._percentage_diff(self.VolumeGrossMonthToDatePrevious, self.VolumeGrossMonthCurrent)
 
+	def set_customers(self, customers: list) -> None:
+		"""
+		Set properties dependent on retrieving customer data
+		"""
+
+		self.CountTrialingToday = self.customers_date(customers, int(self.DateDayStartCurrent.timestamp()), int(self.DateDayEndCurrent.timestamp()))
+
 	def set_account(self, account: stripe.Account | None) ->None:
 		"""
-		Set account properties
+		Set properties dependent on retrieving acccount data
 		"""
 
 		if (account):
@@ -248,11 +255,52 @@ class RevenutStripe(BaseModel):
 
 		return subscriptions_upcoming_amount
 
+	def customers(self, account_id: str, epochStart: int) -> list:
+		"""
+		Returns an auto-paginated list of customers from Stripe
+
+		:param account_id: stripe account identifier
+		:param epochStart: request records created greater than or equal to Epoch timestamp
+		"""
+		
+		customers_list = []
+
+		try:
+			# https://stripe.com/docs/api/customers/list
+			customers = stripe.Customer.list(stripe_account=account_id, limit=100, created={'gte': epochStart})
+		except Exception as e:
+			logging.error(e)
+		else:
+			for c in customers.auto_paging_iter():
+				utcToLocaldatetime = time.localtime(c.created)
+				c.created = time.mktime(utcToLocaldatetime)
+				customers_list.append(c)
+
+		return customers_list
+	
+	def customers_date(self, customers_list: list, epochStart: float, epochEnd: float) -> int:
+		"""
+		Returns the number of customers created in the requested timespan
+		:param epochStart: records created greater than or equal to timestamp
+		:param epochEnd: records created less than or equal to timestamp
+		"""
+		
+		customers_count = 0
+
+		customers_date = list(filter(lambda x:
+			x.created >= epochStart
+			and x.created <= epochEnd
+		, customers_list))
+
+		customers_count = len(customers_date)
+
+		return customers_count
+
 	def _icon_expire(self, timeDeltaMinutes: int = 5):
 		"""
 		Returns an expiration date
 		"""
-		return int((datetime.datetime.now() + datetime.timedelta(minutes=timeDeltaMinutes)).timestamp());
+		return int((datetime.datetime.now() + datetime.timedelta(minutes=timeDeltaMinutes)).timestamp())
 
 	def _percentage_diff(self, previous: float, current:float) -> float:
 		"""
