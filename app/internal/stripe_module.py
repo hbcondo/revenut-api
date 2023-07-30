@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 from pydantic import BaseModel
 from zoneinfo import ZoneInfo
 from multiprocessing import Pool
@@ -11,6 +12,10 @@ import logging
 import time
 
 import stripe
+
+load_dotenv()
+stripe.api_key = os.getenv('STRIPE_API_KEY')
+stripe.log = 'info'		
 
 class RevenutStripe(BaseModel):
 	#region Properties
@@ -49,9 +54,6 @@ class RevenutStripe(BaseModel):
 
 	def __init__(self, *a, **kw):
 		super().__init__(*a, **kw)
-
-		stripe.api_key = os.getenv('API_KEY_STRIPE')
-		stripe.log = 'info'
 
 		if (self.TimezonePreference):
 			self.set_locale()
@@ -338,7 +340,7 @@ class RevenutStripe(BaseModel):
 
 def main():
 	print("Calling Stripe API...")
-	mystripe = RevenutStripe()
+	mystripe = RevenutStripe(AccountID=os.getenv('STRIPE_ACCOUNT_ID'), TimezonePreference="America/Los_Angeles")
 
 	print(f"""
 		Status: {mystripe.Status}
