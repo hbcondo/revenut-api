@@ -361,6 +361,22 @@ class RevenutStripe(BaseModel):
 
 		return account_id
 
+	def revoke(self, account_id: str) -> str | None:
+		"""
+		Used for revoking access to an account
+		"""
+
+		response = None
+		client_id = os.getenv('STRIPE_CLIENT_ID')
+
+		try:
+			# https://stripe.com/docs/connect/oauth-reference#post-deauthorize
+			response = stripe.OAuth.deauthorize(client_id=client_id, stripe_user_id=account_id)
+		except Exception as e:
+			response = e.code
+		
+		return response
+
 	def _icon_expire(self, timeDeltaMinutes: int = 5):
 		"""
 		Returns an expiration date
@@ -378,8 +394,13 @@ class RevenutStripe(BaseModel):
 		except ZeroDivisionError:
 			return float('inf')
 
-def main():
+def main() -> None:
+	"""
+	Run RevenutStripe independent of API
+	"""
+	
 	mystripe = RevenutStripe(AccountID=os.getenv('STRIPE_ACCOUNT_ID'), TimezonePreference="America/Los_Angeles")
+	#mystripe = RevenutStripe().revoke(os.getenv('STRIPE_ACCOUNT_ID'))
 
 	print(f"""
 		Status: {mystripe.Status}
