@@ -15,12 +15,18 @@ app.add_middleware(
 )
 
 @app.get("/", status_code=status.HTTP_404_NOT_FOUND)
-async def read_root():
-	raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+async def read_root() -> None:
+    """
+    Root request
+    """
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
 @app.get("/health", status_code=status.HTTP_200_OK)
-async def read_health():
-    return {"Hello": "World!"}
+async def read_health() -> bool:
+    """
+    API health check request
+    """
+    return True
 
 if __name__ == "__main__":
     uvicorn.run(app, host="localhost", port=8000)
