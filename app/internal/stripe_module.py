@@ -60,7 +60,14 @@ class RevenutStripe(BaseModel):
 			self.Status = "init"
 
 		if (self.AuthorizationCode):
-			pass
+			token = self.token(self.AuthorizationCode)
+
+			if ('error' not in token):
+				self.AccountID = self.user_id(token)
+				self.Status = "authorized_new"
+				self.IsAuthorized = True
+			else:
+				self.Status = token['error']
 
 		elif (self.AccountID):
 			self.Status = "authorized_existing"
@@ -321,6 +328,39 @@ class RevenutStripe(BaseModel):
 
 		return customers_count
 
+	def token(self, auth_code:str) -> dict:
+		"""
+		Used both for turning an authorization_code into an account connection, and for getting a new access token using a refresh_token
+		https://stripe.com/docs/connect/oauth-reference#post-token
+
+		:param auth_code: authorization code returned from Stripe Connect
+		"""
+
+		response = dict()
+		try:
+			response = stripe.OAuth.token(grant_type='authorization_code', code=auth_code)
+		except stripe.oauth_error.InvalidGrantError as g:
+			logging.error(g)
+			response = {"error": g.code}
+		except Exception as e:
+			logging.error(e)
+			response = {"error": e.user_message}
+		finally:
+			logging.info("success: token")
+
+		return response
+
+	def user_id(self, token: dict) -> str:
+		"""
+		Returns the `stripe_user_id` from a Stripe token
+		"""
+		account_id = None
+		
+		if (token.__contains__('stripe_user_id')):
+			account_id = token['stripe_user_id']
+
+		return account_id
+
 	def _icon_expire(self, timeDeltaMinutes: int = 5):
 		"""
 		Returns an expiration date
@@ -339,7 +379,6 @@ class RevenutStripe(BaseModel):
 			return float('inf')
 
 def main():
-	print("Calling Stripe API...")
 	mystripe = RevenutStripe(AccountID=os.getenv('STRIPE_ACCOUNT_ID'), TimezonePreference="America/Los_Angeles")
 
 	print(f"""
