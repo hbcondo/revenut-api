@@ -36,7 +36,14 @@ async def read_account(
     , tzIdentifier: str
     , code: str | None = None
     , account: str | None = None
-):
+) -> RevenutStripe:
+    """
+    Returns populated ```RevenutStripe``` object
+    :param tzIdentifier: Timezone identifier https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+    :param code: Authorization code returned by OAuth provider
+    :param account: Account identifier returned by OAuth provider
+    """
+
     rStripe = RevenutStripe()
 
     if (code):
@@ -49,6 +56,25 @@ async def read_account(
         rStripe = RevenutStripe(AccountID=account, TimezonePreference=tzIdentifier)
 
     if (rStripe.AccountName):
+        response.status_code = status.HTTP_200_OK
+
+    return rStripe
+
+@app.get("/v1/logout", response_model=RevenutStripe, status_code=status.HTTP_401_UNAUTHORIZED)
+async def read_logout(
+    response: Response
+    , account: str
+) -> RevenutStripe:
+    """
+    Revokes access to requested account
+    :param account: Account identifier
+    """
+
+    rStripe = RevenutStripe()
+    account_id = rStripe.revoke(account)
+
+    if (account_id):
+        rStripe.Status = "revoked"
         response.status_code = status.HTTP_200_OK
 
     return rStripe
