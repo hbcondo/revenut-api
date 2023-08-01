@@ -99,7 +99,7 @@ class RevenutStripe(BaseModel):
 
 		self.DateMonthStartPrevious = self.DateMonthStartCurrent + dateutil.relativedelta.relativedelta(months=-1)
 		self.DateMonthEndPrevious = self.DateMonthEndCurrent + dateutil.relativedelta.relativedelta(months=-1)
-		self.DateMonthToDatePrevious = self.DateMonthStartPrevious.replace(day=self.DateToday.day, hour=23, minute=59, second=59, microsecond=999)
+		self.DateMonthToDatePrevious = self.DateDayEndCurrent - dateutil.relativedelta.relativedelta(months=1)
 
 	def set_subscriptions(self, subscriptions: list) -> None:
 		"""
