@@ -1,3 +1,4 @@
+from enums import RevenutChangeType, RevenutAuthorizationType
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from zoneinfo import ZoneInfo
@@ -41,6 +42,7 @@ class RevenutStripe(BaseModel):
 	VolumeGrossMonthPrevious:float = 0
 	VolumeGrossMonthToDatePrevious:float = 0
 	VolumeGrossMonthForecast:float = 0
+	VolumeGrossMonthOverMonthPercentChangeType:RevenutChangeType = RevenutChangeType.NOCHANGE
 	VolumeGrossMonthOverMonthPercentChange:float = 0
 	VolumeGrossMonthToMonthPercentChange:float = 0
 	VolumePending:float = 0
@@ -57,20 +59,20 @@ class RevenutStripe(BaseModel):
 
 		if (self.TimezonePreference):
 			self.set_locale()
-			self.Status = "init"
+			self.Status = RevenutAuthorizationType.INITIALIZED
 
 		if (self.AuthorizationCode):
 			token = self.token(self.AuthorizationCode)
 
 			if ('error' not in token):
 				self.AccountID = self.user_id(token)
-				self.Status = "authorized_new"
+				self.Status = RevenutAuthorizationType.AUTHORIZED_CODE
 				self.IsAuthorized = True
 			else:
 				self.Status = token['error']
 
 		elif (self.AccountID):
-			self.Status = "authorized_existing"
+			self.Status = RevenutAuthorizationType.AUTHORIZED_ID
 			self.IsAuthorized = True
 
 			with Pool() as pool:
@@ -124,6 +126,13 @@ class RevenutStripe(BaseModel):
 		self.VolumeGrossMonthPrevious = self.transactions_date(transactions, self.DateMonthStartPrevious.timestamp(), self.DateMonthEndPrevious.timestamp())["amount"]
 		self.VolumeGrossMonthToDatePrevious = self.transactions_date(transactions, self.DateMonthStartPrevious.timestamp(), self.DateMonthToDatePrevious.timestamp())["amount"]
 		self.VolumeGrossMonthToMonthPercentChange = self._percentage_diff(self.VolumeGrossMonthToDatePrevious, self.VolumeGrossMonthCurrent)
+	
+		if self.VolumeGrossMonthToMonthPercentChange > 0:
+			self.VolumeGrossMonthOverMonthPercentChangeType = RevenutChangeType.INCREASE
+		elif self.VolumeGrossMonthToMonthPercentChange < 0:
+			self.VolumeGrossMonthOverMonthPercentChangeType = RevenutChangeType.DECREASE
+		else:
+			self.VolumeGrossMonthOverMonthPercentChangeType = RevenutChangeType.NOCHANGE
 
 	def set_customers(self, customers: list) -> None:
 		"""
@@ -400,7 +409,6 @@ def main() -> None:
 	"""
 	
 	mystripe = RevenutStripe(AccountID=os.getenv('STRIPE_ACCOUNT_ID'), TimezonePreference="America/Los_Angeles")
-	#mystripe = RevenutStripe().revoke(os.getenv('STRIPE_ACCOUNT_ID'))
 
 	print(f"""
 		Status: {mystripe.Status}
@@ -409,6 +417,8 @@ def main() -> None:
 		VolumePending: {locale.currency(mystripe.VolumePending)}
 		VolumeGrossMonthTrialing: {locale.currency(mystripe.VolumeTrialing)}
 		VolumeGrossMonthForecast: {locale.currency(mystripe.VolumeGrossMonthForecast)}
+		VolumeGrossMonthPrevious: {locale.currency(mystripe.VolumeGrossMonthPrevious)}
+		VolumeGrossMonthOverMonthPercentChangeType: {mystripe.VolumeGrossMonthOverMonthPercentChangeType}
 	""")
 
 if __name__ == '__main__':

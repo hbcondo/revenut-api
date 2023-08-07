@@ -4,6 +4,7 @@ from fastapi import FastAPI, Response, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from internal.stripe_module import RevenutStripe
+from internal.enums import RevenutAuthorizationType
 
 app = FastAPI()
 
@@ -74,7 +75,7 @@ async def read_logout(
     account_id = rStripe.revoke(account)
 
     if (account_id):
-        rStripe.Status = "revoked"
+        rStripe.Status = RevenutAuthorizationType.REVOKED
         response.status_code = status.HTTP_200_OK
 
     return rStripe
