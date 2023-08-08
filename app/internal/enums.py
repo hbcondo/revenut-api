@@ -1,23 +1,23 @@
-from enum import StrEnum
+from enum import IntEnum
 
-class RevenutChangeType(StrEnum):
+class RevenutChangeType(IntEnum):
 	"""
 	Enumeration describing how a metric changed over time
 	"""
 	
-	INCREASE = 'INCREASE'
-	DECREASE = 'DECREASE'
-	NOCHANGE = 'NOCHANGE'
+	INCREASE = 1
+	DECREASE = -1
+	NOCHANGE = 0
 
-class RevenutAuthorizationType(StrEnum):
+class RevenutAuthorizationType(IntEnum):
 	"""
 	Enumeration of how user performed authorization of account
 	"""
 	
-	INITIALIZED = "INITIALIZED"
-	AUTHORIZED_CODE = "AUTHORIZED_CODE"
-	AUTHORIZED_ID = "AUTHORIZED_ID"
-	REVOKED = "REVOKED"
+	INITIALIZED = 0
+	AUTHORIZED_CODE = 1
+	AUTHORIZED_ID = 2
+	REVOKED = -1
 
 def main() -> None:
 	print(RevenutChangeType.INCREASE)
