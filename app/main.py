@@ -17,22 +17,30 @@ app.add_middleware(
     allow_origins=origins
 )
 
+"""
+If you are using a third party library that communicates with something 
+(a database, an API, the file system, etc.) and doesn't have support for using await, 
+then declare your path operation functions as normally, with just def
+
+Source: https://fastapi.tiangolo.com/async/
+"""
+
 @app.get("/", status_code=status.HTTP_404_NOT_FOUND)
-async def read_root() -> None:
+def read_root() -> None:
     """
     Root request
     """
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
 @app.get("/health", status_code=status.HTTP_200_OK)
-async def read_health() -> bool:
+def read_health() -> bool:
     """
     API health check request
     """
     return True
 
 @app.get("/v1/dashboard", response_model=RevenutStripe, status_code=status.HTTP_401_UNAUTHORIZED)
-async def read_account(
+def read_account(
     response: Response
     , tzIdentifier: str
     , code: str | None = None
@@ -62,7 +70,7 @@ async def read_account(
     return rStripe
 
 @app.get("/v1/logout", response_model=RevenutStripe, status_code=status.HTTP_401_UNAUTHORIZED)
-async def read_logout(
+def read_logout(
     response: Response
     , account: str
 ) -> RevenutStripe:

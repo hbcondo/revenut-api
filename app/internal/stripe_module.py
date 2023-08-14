@@ -21,7 +21,7 @@ stripe.log = 'info'
 class RevenutStripe(BaseModel):
 	#region Properties
 	IsAuthorized: bool = False
-	Status:str | None = None
+	Status:RevenutAuthorizationType | None = None
 	AccountID: str | None = None
 	AccountName: str | None = None
 	AccountIconURL: str | None = None
