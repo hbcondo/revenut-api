@@ -2,7 +2,6 @@ from enums import RevenutChangeType, RevenutAuthorizationType
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from zoneinfo import ZoneInfo
-from multiprocessing import Pool
 
 import os
 import calendar
@@ -11,6 +10,7 @@ import dateutil.relativedelta
 import locale
 import logging
 import time
+import concurrent.futures
 
 import stripe
 
@@ -75,16 +75,16 @@ class RevenutStripe(BaseModel):
 			self.Status = RevenutAuthorizationType.AUTHORIZED_ID
 			self.IsAuthorized = True
 
-			with Pool() as pool:
-				transactions = pool.apply_async(self.transactions, (self.AccountID, int(self.DateMonthStartPrevious.timestamp()),))
-				subscriptions = pool.apply_async(self.subscriptions, (self.AccountID, int(self.DateMonthEndCurrent.timestamp()),))
-				customers = pool.apply_async(self.customers, (self.AccountID, int(self.DateDayStartCurrent.timestamp()),))
-				account = pool.apply_async(self.account, (self.AccountID,))
+			with concurrent.futures.ThreadPoolExecutor() as pool:
+				transactions = pool.submit(self.transactions, self.AccountID, int(self.DateMonthStartPrevious.timestamp()))
+				subscriptions = pool.submit(self.subscriptions, self.AccountID, int(self.DateMonthEndCurrent.timestamp()))
+				customers = pool.submit(self.customers, self.AccountID, int(self.DateDayStartCurrent.timestamp()))
+				account = pool.submit(self.account, self.AccountID)
 
-				self.set_transactions(transactions.get())
-				self.set_subscriptions(subscriptions.get())
-				self.set_customers(customers.get())
-				self.set_account(account.get())
+				self.set_transactions(transactions.result())
+				self.set_subscriptions(subscriptions.result())
+				self.set_customers(customers.result())
+				self.set_account(account.result())
 
 	def set_locale(self) -> None:
 		"""

@@ -1,4 +1,7 @@
-import uvicorn
+import asyncio
+
+from hypercorn.config import Config
+from hypercorn.asyncio import serve
 
 from fastapi import FastAPI, Response, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -89,4 +92,6 @@ def read_logout(
     return rStripe
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000)
+    config = Config()
+    config.bind = ["localhost:8000"]
+    asyncio.run(serve(app, config))
