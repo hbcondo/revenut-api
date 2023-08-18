@@ -66,7 +66,7 @@ class RevenutStripe(BaseModel):
 		if (self.AuthorizationCode):
 			token = self.token(self.AuthorizationCode)
 
-			if (type(token) is dict):
+			if (isinstance(token, dict)):
 				self.AccountID = self.user_id(token)
 				self.Status = RevenutAuthorizationType.AUTHORIZED_CODE
 				self.IsAuthorized = True
