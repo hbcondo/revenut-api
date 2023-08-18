@@ -20,13 +20,13 @@ stripe.log = 'info'
 
 class RevenutStripe(BaseModel):
 	#region Properties
-	IsAuthorized: bool = False
+	IsAuthorized:bool = False
 	Status:RevenutAuthorizationType | None = None
-	Code: int = 0
+	Code:int = 0
 	Error:str | None = None
-	AccountID: str | None = None
-	AccountName: str | None = None
-	AccountIconURL: str | None = None
+	AccountID:str | None = None
+	AccountName:str | None = None
+	AccountIconURL:str | None = None
 	AuthorizationCode:str | None = None
 	TimezonePreference:str | None = None
 	DateToday:datetime.datetime = datetime.datetime.now()
@@ -66,12 +66,14 @@ class RevenutStripe(BaseModel):
 		if (self.AuthorizationCode):
 			token = self.token(self.AuthorizationCode)
 
-			if ('error' not in token):
+			if (type(token) is dict):
 				self.AccountID = self.user_id(token)
 				self.Status = RevenutAuthorizationType.AUTHORIZED_CODE
 				self.IsAuthorized = True
-			else:
-				self.Status = token['error']
+			elif (isinstance(token, stripe.error.StripeError)):
+				self.Status = RevenutAuthorizationType.ERROR
+				self.Error = token.user_message
+				self.Code = token.http_status
 
 		elif (self.AccountID):
 			with concurrent.futures.ThreadPoolExecutor() as pool:
@@ -183,7 +185,7 @@ class RevenutStripe(BaseModel):
 
 		return accountIconFileLink
 
-	def transactions(self, account_id:str, epochStart: int) -> list:
+	def transactions(self, account_id: str, epochStart: int) -> list:
 		"""
 		Returns a collection of auto-paginated charges from Stripe
 
@@ -265,7 +267,7 @@ class RevenutStripe(BaseModel):
 
 		return subscriptions_list
 
-	def subscriptions_trialing(self, subscriptions_list, epochEnd: int, epochStart:int | None = None) -> dict:
+	def subscriptions_trialing(self, subscriptions_list: list, epochEnd: int, epochStart:int | None = None) -> dict:
 		"""
 		Returns the dollar amount and count of subscriptions that are still in trial phase for current month
 		"""
@@ -345,7 +347,7 @@ class RevenutStripe(BaseModel):
 
 		return customers_count
 
-	def token(self, auth_code:str) -> dict:
+	def token(self, auth_code: str) -> stripe.error.StripeError | dict:
 		"""
 		Used both for turning an authorization_code into an account connection, and for getting a new access token using a refresh_token
 		https://stripe.com/docs/connect/oauth-reference#post-token
@@ -353,17 +355,13 @@ class RevenutStripe(BaseModel):
 		:param auth_code: authorization code returned from Stripe Connect
 		"""
 
-		response = dict()
+		response = None
+
 		try:
 			response = stripe.OAuth.token(grant_type='authorization_code', code=auth_code)
-		except stripe.oauth_error.InvalidGrantError as g:
-			logging.error(g)
-			response = {"error": g.code}
 		except Exception as e:
 			logging.error(e)
-			response = {"error": e.user_message}
-		finally:
-			logging.info("success: token")
+			return e
 
 		return response
 
@@ -416,7 +414,7 @@ def main() -> None:
 	Run RevenutStripe independent of API
 	"""
 	
-	#mystripe = RevenutStripe(AccountID="123", TimezonePreference="America/Los_Angeles")
+	#mystripe = RevenutStripe(AuthorizationCode="123")
 	mystripe = RevenutStripe(AccountID=os.getenv('STRIPE_ACCOUNT_ID'), TimezonePreference="America/Los_Angeles")
 
 	print(f"""
@@ -424,12 +422,12 @@ def main() -> None:
 		Code: {mystripe.Code}
 		IsAuthorized: {mystripe.IsAuthorized}
 		Error: {mystripe.Error}
-		VolumeGrossToday: {locale.currency(mystripe.VolumeGrossToday)}
-		VolumeGrossMonthCurrent: {locale.currency(mystripe.VolumeGrossMonthCurrent)}
-		VolumePending: {locale.currency(mystripe.VolumePending)}
-		VolumeGrossMonthTrialing: {locale.currency(mystripe.VolumeTrialing)}
-		VolumeGrossMonthForecast: {locale.currency(mystripe.VolumeGrossMonthForecast)}
-		VolumeGrossMonthPrevious: {locale.currency(mystripe.VolumeGrossMonthPrevious)}
+		VolumeGrossToday: {mystripe.VolumeGrossToday}
+		VolumeGrossMonthCurrent: {mystripe.VolumeGrossMonthCurrent}
+		VolumePending: {mystripe.VolumePending}
+		VolumeGrossMonthTrialing: {mystripe.VolumeTrialing}
+		VolumeGrossMonthForecast: {mystripe.VolumeGrossMonthForecast}
+		VolumeGrossMonthPrevious: {mystripe.VolumeGrossMonthPrevious}
 		VolumeGrossMonthOverMonthPercentChangeType: {mystripe.VolumeGrossMonthOverMonthPercentChangeType}
 	""")
 
