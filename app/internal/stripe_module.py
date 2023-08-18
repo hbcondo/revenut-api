@@ -22,6 +22,8 @@ class RevenutStripe(BaseModel):
 	#region Properties
 	IsAuthorized: bool = False
 	Status:RevenutAuthorizationType | None = None
+	Code: int = 0
+	Error:str | None = None
 	AccountID: str | None = None
 	AccountName: str | None = None
 	AccountIconURL: str | None = None
@@ -72,9 +74,6 @@ class RevenutStripe(BaseModel):
 				self.Status = token['error']
 
 		elif (self.AccountID):
-			self.Status = RevenutAuthorizationType.AUTHORIZED_ID
-			self.IsAuthorized = True
-
 			with concurrent.futures.ThreadPoolExecutor() as pool:
 				transactions = pool.submit(self.transactions, self.AccountID, int(self.DateMonthStartPrevious.timestamp()))
 				subscriptions = pool.submit(self.subscriptions, self.AccountID, int(self.DateMonthEndCurrent.timestamp()))
@@ -141,18 +140,26 @@ class RevenutStripe(BaseModel):
 
 		self.CountTrialingToday = self.customers_date(customers, int(self.DateDayStartCurrent.timestamp()), int(self.DateDayEndCurrent.timestamp()))
 
-	def set_account(self, account: stripe.Account | None) ->None:
+	def set_account(self, account: stripe.Account | stripe.error.StripeError) -> None:
 		"""
 		Set properties dependent on retrieving acccount data
 		"""
 
-		if (account):
+		if (type(account) is stripe.Account):
+			self.IsAuthorized = True
+			self.Status = RevenutAuthorizationType.AUTHORIZED_ID
+			self.Code = 200		
 			self.AccountName = account.business_profile.name
+
 			accountIconFileLink = self.account_icon(account.stripe_id, account.settings.branding.icon)
 			if (accountIconFileLink):
 				self.AccountIconURL = accountIconFileLink.url
+		elif (isinstance(account, stripe.error.StripeError)):
+			self.Status = RevenutAuthorizationType.ERROR
+			self.Error = account.user_message
+			self.Code = account.http_status
 
-	def account(self, account_id) -> None | stripe.Account:
+	def account(self, account_id) -> stripe.error.StripeError | stripe.Account:
 		account_retrieve = None
 
 		try:
@@ -160,6 +167,7 @@ class RevenutStripe(BaseModel):
 			account_retrieve = stripe.Account.retrieve(account_id)
 		except Exception as e:
 			logging.error(e)
+			return e
 
 		return account_retrieve
 
@@ -408,10 +416,14 @@ def main() -> None:
 	Run RevenutStripe independent of API
 	"""
 	
+	#mystripe = RevenutStripe(AccountID="123", TimezonePreference="America/Los_Angeles")
 	mystripe = RevenutStripe(AccountID=os.getenv('STRIPE_ACCOUNT_ID'), TimezonePreference="America/Los_Angeles")
 
 	print(f"""
 		Status: {mystripe.Status}
+		Code: {mystripe.Code}
+		IsAuthorized: {mystripe.IsAuthorized}
+		Error: {mystripe.Error}
 		VolumeGrossToday: {locale.currency(mystripe.VolumeGrossToday)}
 		VolumeGrossMonthCurrent: {locale.currency(mystripe.VolumeGrossMonthCurrent)}
 		VolumePending: {locale.currency(mystripe.VolumePending)}

@@ -18,6 +18,7 @@ class RevenutAuthorizationType(IntEnum):
 	AUTHORIZED_CODE = 1
 	AUTHORIZED_ID = 2
 	REVOKED = -1
+	ERROR = -2
 
 def main() -> None:
 	print(RevenutChangeType.INCREASE)
