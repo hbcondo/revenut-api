@@ -32,8 +32,8 @@ This is an API project that delivers the RESTful endpoints that power the SaaS a
 These instructions will get you a copy of the API up and running on your local machine for development and testing purposes.
 
 ### Prerequisites
-- [Python](https://www.python.org)
-- [Stripe](https://stripe.com)
+- [```Python```](https://www.python.org)
+- [```Stripe```](https://stripe.com)
 
 ### Installation
 ```cli
@@ -66,9 +66,13 @@ app/test_main.py ..                                                 [100%]
 ```
 
 ## ⛏️ Built Using
-- [Python](https://www.python.org)
-- [FastAPI](https://fastapi.tiangolo.com)
-- [OpenAPI](https://www.openapis.org)
+- [```Python```](https://www.python.org)
+- [```FastAPI```](https://fastapi.tiangolo.com)
+- [```OpenAPI```](https://www.openapis.org)
+
+## ✅ TODO
+- [ ] Error handling
+- [ ] Persistence / Cache
 
 ## 👪 Contributing
 If you like Revenut, please star this repo. If you want to make Revenut better, feel free to submit a PR, log an issue or [contact me](https://amarkota.com/contact) directly.
@@ -77,7 +81,7 @@ If you like Revenut, please star this repo. If you want to make Revenut better, 
 The Revenut source code is made available under the [**Apache 2.0 license**](LICENSE).
 
 ## ✍️ Authors
-- [@hbcondo](https://github.com/hbcondo) - dea & initial work
+- [@hbcondo](https://github.com/hbcondo) - idea & initial work
 
 ## 🎉 Acknowledgements
 https://stripe.com/docs/api
