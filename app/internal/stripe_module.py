@@ -116,6 +116,14 @@ class RevenutStripe(BaseModel):
 		self.VolumeGrossMonthCurrentPercent = self.VolumeGrossMonthForecast and ((self.VolumeGrossMonthCurrent / self.VolumeGrossMonthForecast) * 100.0) or 0
 		self.VolumeTrialingPercent = self.VolumeGrossMonthForecast and ((self.VolumeTrialing / self.VolumeGrossMonthForecast) * 100.0) or 0
 		self.VolumePendingPercent = self.VolumeGrossMonthForecast and ((self.VolumePending / self.VolumeGrossMonthForecast) * 100.0) or 0
+		self.VolumeGrossMonthToMonthPercentChange = self._percentage_diff(self.VolumeGrossMonthPrevious, self.VolumeGrossMonthForecast)
+	
+		if self.VolumeGrossMonthToMonthPercentChange > 0:
+			self.VolumeGrossMonthOverMonthPercentChangeType = RevenutChangeType.INCREASE
+		elif self.VolumeGrossMonthToMonthPercentChange < 0:
+			self.VolumeGrossMonthOverMonthPercentChangeType = RevenutChangeType.DECREASE
+		else:
+			self.VolumeGrossMonthOverMonthPercentChangeType = RevenutChangeType.NOCHANGE
 
 	def set_transactions(self, transactions: list) -> None:
 		"""
@@ -126,14 +134,6 @@ class RevenutStripe(BaseModel):
 		self.VolumeGrossMonthCurrent = self.transactions_date(transactions, self.DateMonthStartCurrent.timestamp(), self.DateMonthEndCurrent.timestamp())["amount"]
 		self.VolumeGrossMonthPrevious = self.transactions_date(transactions, self.DateMonthStartPrevious.timestamp(), self.DateMonthEndPrevious.timestamp())["amount"]
 		self.VolumeGrossMonthToDatePrevious = self.transactions_date(transactions, self.DateMonthStartPrevious.timestamp(), self.DateMonthToDatePrevious.timestamp())["amount"]
-		self.VolumeGrossMonthToMonthPercentChange = self._percentage_diff(self.VolumeGrossMonthToDatePrevious, self.VolumeGrossMonthCurrent)
-	
-		if self.VolumeGrossMonthToMonthPercentChange > 0:
-			self.VolumeGrossMonthOverMonthPercentChangeType = RevenutChangeType.INCREASE
-		elif self.VolumeGrossMonthToMonthPercentChange < 0:
-			self.VolumeGrossMonthOverMonthPercentChangeType = RevenutChangeType.DECREASE
-		else:
-			self.VolumeGrossMonthOverMonthPercentChangeType = RevenutChangeType.NOCHANGE
 
 	def set_customers(self, customers: list) -> None:
 		"""
