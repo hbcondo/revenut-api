@@ -52,7 +52,7 @@ pure-eval==0.2.2
 pydantic==2.0.2
 pydantic_core==2.1.2
 Pygments==2.15.1
-pytest==7.4.0
+pytest==9.0.3
 python-dateutil==2.8.2
 python-dotenv==1.0.0
 python-multipart==0.0.31
