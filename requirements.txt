@@ -23,7 +23,7 @@ httptools==0.5.0
 httpx==0.24.0
 hypercorn==0.14.4
 hyperframe==6.0.1
-idna==3.4
+idna==3.15
 iniconfig==2.0.0
 ipykernel==6.23.0
 ipython==8.13.2
